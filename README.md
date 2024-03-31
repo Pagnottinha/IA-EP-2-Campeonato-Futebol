@@ -26,3 +26,8 @@ A organização do campeonato de futebol no formato de pontos corridos. Todos os
 | SE Escondidos   | Escondidos     | 50.000     |
 | Secretos FC     | Escondidos     | 25.000     |
 
+## Créditos:
+Projeto realizado por:
+- Carolina Gimenez
+- Eduarda Medeiros
+- Gustavo Pagnotta 
