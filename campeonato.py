@@ -1,60 +1,119 @@
 from equipe import Equipe, pegarEquipes
 from random import shuffle, randint, random
-from copy import deepcopy
-from turno import Turno
 
 class Campeonato:
 
-    def __init__(self, turnos = [], menor_torcida_maiores = 0):
-        self.turnos = turnos
-        self.menor_torcida_maiores = menor_torcida_maiores
+    def __init__(self, equipes, turnos = []):
+        self.equipes = equipes
+        self.torcida_classico = equipes[2].torcida
+
+        if len(turnos) == 0:
+            self.gerar()
+        else:
+            self.turnos = turnos
 
     def fitness(self):
         punicao = 0
-
-        todas_partidas = []
-        for turno in self.turnos:
-            punicao += turno.fitness()
-            todas_partidas.extend(turno.partidas)
-
+       
         dict_partidas = {}
-
-        for partida in todas_partidas:
-            partida_tuple = (partida[0].nome, partida[1].nome)
-
+        for partida in range(0, len(self.turnos), 2):
+            partida_tuple = (self.turnos[partida], self.turnos[partida+1])
             if partida_tuple in dict_partidas:
                 punicao -= 1
             else:
                 dict_partidas[partida_tuple] = 1
 
+        for turno in range(0, len(self.turnos), len(self.equipes)):
+            punicao += self._fitness_turno(self.turnos[turno:turno+len(self.equipes)])
+
         return punicao
     
-    def gerar(self, equipes):
-        self.menor_torcida_maiores = sorted(equipes, key=lambda equipe: equipe.torcida, reverse=True)[1].torcida
-        self.turnos = self.gerarTurnos(equipes)
+    def _fitness_turno(self, turno):
+        penalizacao = 0
+        
+        # para penalizar equipes com muitas ou nenhuma partida
+        partidas_equipes = {}
 
-    def gerarPartidas(self, equipes):
+        for equipe in self.equipes:
+            partidas_equipes[equipe.id] = 0
+
+        # penalizar partidas da mesma cidade
+        cidades = {}
+
+        # penalizar mais de uma partida classica
+        classicos = 0
+
+        for i in range(0, len(turno), 2):
+            id_equipe1 = turno[i]
+            id_equipe2 = turno[i+1]
+            if id_equipe1 == id_equipe2:
+                penalizacao -= 1
+
+            if self.classico(turno[i:i+2]):
+                classicos += 1
+
+            equipe1 = self.equipes[id_equipe1 - 1]
+            if equipe1.cidade in cidades:
+                cidades[equipe1.cidade] += 1
+            else:
+                cidades[equipe1.cidade] = 1
+            
+            partidas_equipes[id_equipe1] += 1
+            partidas_equipes[id_equipe2] += 1
+    
+        for contagem in partidas_equipes.values():
+            penalizacao -= contagem - 1 if contagem > 1 else 0
+            penalizacao -= 1 if contagem == 0 else 0
+
+        for contagem in cidades.values():
+            penalizacao -= contagem - 1 if contagem > 1 else 0
+
+        if classicos > 1:
+            penalizacao -= classicos - 1
+
+        return penalizacao
+
+    def classico(self, partida):
+        equipe1 = self.equipes[partida[0] - 1]
+        equipe2 = self.equipes[partida[1] - 1]
+
+        return equipe1.torcida >= self.torcida_classico and equipe2.torcida >= self.torcida_classico
+    
+    def gerar(self):
+        turnos = self.gerarTurnos()
+        self.turnos = turnos
+
+    def gerarPartidas(self):
         partidas = []
-        for i, equipe1 in enumerate(equipes):
-            for j, equipe2 in enumerate(equipes):
-                if i != j:
-                    partidas.append([equipe1, equipe2])
+        for equipe1 in self.equipes:
+            for equipe2 in self.equipes:
+                if equipe1.id != equipe2.id:
+                    partidas.extend([equipe1.id, equipe2.id])
 
         return partidas
     
-    def gerarTurnos(self, equipes):
-        partidas = self.gerarPartidas(equipes)
+    def gerarTurnos(self):
+        partidas = self.gerarPartidas()
 
         shuffle(partidas)
 
-        return [Turno(partidas[x:x+len(equipes)//2], equipes, self.menor_torcida_maiores) for x in range(0, len(partidas), len(equipes)//2)]
+        return partidas
 
-    
+    def time_aleatorio(self):
+        num = randint(0, len(self.equipes) - 1)
+        return self.equipes[num]
+
     def mutacao(self, taxa):
-        novos_turnos = [turno.mutacao(taxa) for turno in self.turnos]
-        return Campeonato(novos_turnos, self.menor_torcida_maiores)
+        novos_turnos = list(self.turnos)
+
+        for i in range(0, len(novos_turnos)):
+            if random() > taxa:
+                equipe = self.time_aleatorio()
+                novos_turnos[i] = equipe.id
+
+        return Campeonato(self.equipes, novos_turnos)
     
-    def crossover(self, taxa):
+    """ def crossover(self, taxa):
         novosTurnos = deepcopy(self.turnos)
 
         num1 = randint(0, len(self.turnos) - 1)
@@ -70,37 +129,35 @@ class Campeonato:
                     turno1._fitness = float("-inf")
                     turno2._fitness = float("-inf")
         
-        return Campeonato(novosTurnos, self.menor_torcida_maiores)
+        return Campeonato(novosTurnos, self.menor_torcida_maiores) """
 
+    def print_turno(self, turno):
+        texto_turno = ""
+        
+        for i in range(0, len(turno), 2):
+            equipe1 = self.equipes[turno[i] - 1]
+            equipe2 = self.equipes[turno[i+1] - 1]
+
+            texto_turno += f"{equipe1.nome} x {equipe2.nome} ({equipe1.cidade})"
+            
+            if self.classico(turno[i:i+2]):
+                texto_turno += " - Classico"
+
+            texto_turno += "\n"
+
+        return texto_turno
     
     def __str__(self):
         retorno = ""
 
-        for i, turno in enumerate(self.turnos):
-            retorno += f"Turno {i}:\n{turno}\n"
+        for i in range(0, len(self.turnos), len(self.equipes)):
+            retorno += f"Turno {i // len(self.equipes) + 1}:\n"
+            retorno += self.print_turno(self.turnos[i:i+len(self.equipes)])
+            retorno += "\n"
 
         return retorno
         
 if __name__ == "__main__":
-    num_populacao = 4
-    equipes = pegarEquipes()
-    campeonatos = [Campeonato() for _ in range(num_populacao + 1)]
-
-    for campeonato in campeonatos:
-        campeonato.gerar(equipes)
-
-    geracoes = 0
-    while(campeonatos[0].fitness() != 0):
-        mutacoes = [campeonato.mutacao(0.2) for campeonato in campeonatos]
-
-        crossovers = [campeonato.crossover(0.3) for campeonato in mutacoes]       
-
-        todos_campeonatos = campeonatos + mutacoes + crossovers
-
-        campeonatos = sorted(todos_campeonatos, key=lambda campeonato: campeonato.fitness(), reverse=True)[:num_populacao]
-        geracoes += 1
-        
-        if (geracoes % 1000 == 0):
-            print(f"Melhor fitness: {campeonatos[0].fitness()}")
-
-    print(f"Campeonato:\n{campeonatos[0]}")
+    campeonato = Campeonato(pegarEquipes())
+    print(campeonato)
+    print(campeonato.mutacao(0.5))

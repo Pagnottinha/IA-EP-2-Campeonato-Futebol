@@ -10,10 +10,7 @@ class AlgoritmoGenetico:
         self.taxa_crossover = taxa_crossover
 
         self.equipes = pegarEquipes()
-        self.populacao = [Campeonato() for _ in range(self.num_populacao + 1)]
-
-        for campeonato in self.populacao:
-            campeonato.gerar(self.equipes)
+        self.populacao = [Campeonato(self.equipes) for _ in range(self.num_populacao + 1)]
 
         self.populacao = sorted(self.populacao, key=lambda campeonato: campeonato.fitness(), reverse=True)
 
@@ -39,10 +36,12 @@ class AlgoritmoGenetico:
 
             geracoes += 1
 
-            if geracoes % 100 == 0 and maior_fitness == self.populacao[0].fitness():
-                maior_fitness = self.populacao[0].fitness()
-                contador_desastre += 1
-
+            if geracoes % 100 == 0:
+                if maior_fitness == self.populacao[0].fitness():
+                    contador_desastre += 1
+                else:
+                    maior_fitness = self.populacao[0].fitness()
+                    contador_desastre = 0
             
             if contador_desastre == 3:
                 self.desastre()
@@ -51,8 +50,8 @@ class AlgoritmoGenetico:
             if geracoes % 1000 == 0:
                 print(f"Melhor fitness {geracoes}: {self.populacao[0].fitness()}")
 
-            if geracoes % 10000 == 0:
-                break
+            """ if geracoes % 10000 == 0:
+                break """
                 
 
         print(f"Campeonato:\n{self.populacao[0]}")
@@ -63,28 +62,26 @@ class AlgoritmoGenetico:
 
     def desastre(self):
         for campeonato in self.populacao[1:]:
-            campeonato.gerar(self.equipes)   
+            campeonato.gerar()   
 
     def crossover(self, populacao):
         melhor_individuo = populacao[0]
 
         for i in range(1, len(populacao)):
             campeonato2 = populacao[i]
-            novo_campeonato = deepcopy(melhor_individuo)
-            for i_turno in range(len(campeonato2.turnos)):
-                if self.taxa_crossover < random():
-                    turno = novo_campeonato.turnos[i_turno]
-                    for i_partida in range(len(turno.partidas)):
-                        if random() > 0.5:
-                            turno.partidas[i_partida] = novo_campeonato.turnos[i_turno].partidas[i_partida]
-                        else:
-                            turno.partidas[i_partida] = campeonato2.turnos[i_turno].partidas[i_partida]
-            populacao.append(novo_campeonato)
+            novos_turnos = list(melhor_individuo.turnos)
+            for j in range(len(campeonato2.turnos)):
+                if random() > self.taxa_crossover:
+                    if random() > 0.5:
+                        novos_turnos[j] = melhor_individuo.turnos[j]
+                    else:
+                        novos_turnos[j] = campeonato2.turnos[j]
+            populacao.append(Campeonato(self.equipes, novos_turnos))
         
 
         
 
 if __name__ == "__main__":
-    algoritmo = AlgoritmoGenetico(10, 0.4, 0.2)
+    algoritmo = AlgoritmoGenetico(15, 0.6, 0.3)
 
     algoritmo.iniciar()
