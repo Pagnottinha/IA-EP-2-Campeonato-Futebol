@@ -5,7 +5,7 @@ class Campeonato:
 
     def __init__(self, equipes, turnos = []):
         self.equipes = equipes
-        self.torcida_classico = equipes[2].torcida
+        self.torcida_classico = equipes[1].torcida
 
         if len(turnos) == 0:
             self.gerar()
@@ -14,17 +14,20 @@ class Campeonato:
 
     def fitness(self):
         punicao = 0
-       
+
         dict_partidas = {}
         for partida in range(0, len(self.turnos), 2):
             partida_tuple = (self.turnos[partida], self.turnos[partida+1])
             if partida_tuple in dict_partidas:
-                punicao -= 1
+                dict_partidas[partida_tuple] += 1
             else:
                 dict_partidas[partida_tuple] = 1
 
-        for turno in range(0, len(self.turnos), len(self.equipes)):
-            punicao += self._fitness_turno(self.turnos[turno:turno+len(self.equipes)])
+        for i in range(0, len(self.turnos), len(self.equipes)):
+            turno = self.turnos[i:i+len(self.equipes)]
+            punicao += self._fitness_turno(turno)
+
+        punicao -= len(self.equipes) * (len(self.equipes) - 1) - len(dict_partidas.keys())
 
         return punicao
     
@@ -80,8 +83,7 @@ class Campeonato:
         return equipe1.torcida >= self.torcida_classico and equipe2.torcida >= self.torcida_classico
     
     def gerar(self):
-        turnos = self.gerarTurnos()
-        self.turnos = turnos
+        self.turnos = self.gerarTurnos()
 
     def gerarPartidas(self):
         partidas = []
@@ -106,10 +108,13 @@ class Campeonato:
     def mutacao(self, taxa):
         novos_turnos = list(self.turnos)
 
-        for i in range(0, len(novos_turnos)):
-            if random() > taxa:
-                equipe = self.time_aleatorio()
-                novos_turnos[i] = equipe.id
+        for i in range(0, len(novos_turnos), 2):
+            if taxa > random():
+                if random() > 0.4:
+                    novos_turnos[i] = self.time_aleatorio().id
+                    novos_turnos[i+1] = self.time_aleatorio().id
+                else:
+                    novos_turnos[i], novos_turnos[i+1] = novos_turnos[i+1], novos_turnos[i]    
 
         return Campeonato(self.equipes, novos_turnos)
     
@@ -160,4 +165,4 @@ class Campeonato:
 if __name__ == "__main__":
     campeonato = Campeonato(pegarEquipes())
     print(campeonato)
-    print(campeonato.mutacao(0.5))
+    print(campeonato.fitness())
